@@ -1,68 +1,90 @@
+// pages/api/getmovies.js
 import { mongooseConnect } from "@/lib/mongoose";
 import { Movie } from "@/models/Movie";
 
 export default async function handle(req, res) {
-    const { method } = req;
+  const { method } = req;
 
-    // Connect to MongoDB database
+  // ---- 1. Connect to DB -------------------------------------------------
+  try {
     await mongooseConnect();
+  } catch (err) {
+    console.error("DB connection failed:", err);
+    return res
+      .status(500)
+      .json({ error: "Database connection failed", details: err.message });
+  }
 
-    // Prevent caching of the response
-    res.setHeader('Cache-Control', 'no-store'); // This will ensure the response is not cached
+  // ---- 2. Prevent caching ------------------------------------------------
+  res.setHeader("Cache-Control", "no-store");
 
-    // Handle GET request for movie data
-    if (method === "GET") {
-        try {
-            if (req.query?.id) {
-                // Fetch a single movie by ID
-                const movie = await Movie.findById(req.query.id); // Corrected method
-                if (!movie) return res.status(404).json({ message: "Movie not found" });
-                return res.json(movie);
-            } 
-            
-            if (req.query?.title) {
-                // Fetch movies by title (search)
-                const title = await Movie.find({ title: new RegExp(req.query.title, 'i') }); // Case-insensitive search
-                return res.json(title);
-            } 
-            
-            if (req.query?.titlecategory) {
-                // Fetch movies by title category
-                const titlecategory = await Movie.find({ titlecategory: req.query.titlecategory });
-                return res.json(titlecategory.reverse()); // Reverse for showing latest data
-            } 
-            
-            if (req.query?.genre) {
-                // Fetch movie by genre
-                const genre = await Movie.find({ genre: req.query.genre });
-                return res.json(genre.reverse()); // Reverse for showing latest data
-            } 
-            
-            if (req.query?.category) {
-                // Fetch movie by category
-                const category = await Movie.find({ category: req.query.category });
-                return res.json(category.reverse()); // Reverse for showing latest data
-            } 
-            
-            if (req.query?.slug) {
-                // Fetch movie by slug
-                const slug = await Movie.find({ slug: req.query.slug });
-                if (!slug.length) return res.status(404).json({ message: "Movie not found" });
-                return res.json(slug.reverse()); // Reverse for showing latest data
-            }
+  // ---- 3. Only allow GET -------------------------------------------------
+  if (method !== "GET") {
+    return res.status(405).json({ message: "Method Not Allowed" });
+  }
 
-            // Fetch all movies
-            const movies = await Movie.find();
-            return res.json(movies.reverse()); // Reverse for showing latest data
-
-        } catch (error) {
-            // Handle errors
-            console.error(error);
-            return res.status(500).json({ message: "Internal Server Error" });
-        }
-
-    } else {
-        // Method not allowed
-        return res.status(405).json({ message: "Method Not Allowed" });
+  // ---- 4. Query logic ----------------------------------------------------
+  try {
+    // 1. By ID
+    if (req.query?.id) {
+      const movie = await Movie.findById(req.query.id).lean();
+      if (!movie) {
+        return res.status(404).json({ message: "Movie not found" });
+      }
+      return res.json(movie);
     }
+
+    // 2. Search by title (case-insensitive)
+    if (req.query?.title) {
+      const regex = new RegExp(req.query.title, "i");
+      const movies = await Movie.find({ title: regex }).lean();
+      return res.json(movies);
+    }
+
+    // 3. By titlecategory
+    if (req.query?.titlecategory) {
+      const movies = await Movie.find({
+        titlecategory: req.query.titlecategory,
+      })
+        .lean()
+        .sort({ createdAt: -1 });
+      return res.json(movies);
+    }
+
+    // 4. By genre
+    if (req.query?.genre) {
+      const movies = await Movie.find({ genre: req.query.genre })
+        .lean()
+        .sort({ createdAt: -1 });
+      return res.json(movies);
+    }
+
+    // 5. By category
+    if (req.query?.category) {
+      const movies = await Movie.find({ category: req.query.category })
+        .lean()
+        .sort({ createdAt: -1 });
+      return res.json(movies);
+    }
+
+    // 6. By slug
+    if (req.query?.slug) {
+      const movies = await Movie.find({ slug: req.query.slug })
+        .lean()
+        .sort({ createdAt: -1 });
+      if (!movies.length) {
+        return res.status(404).json({ message: "Movie not found" });
+      }
+      return res.json(movies);
+    }
+
+    // 7. Default: All movies (newest first)
+    const movies = await Movie.find().lean().sort({ createdAt: -1 });
+    return res.json(movies);
+  } catch (err) {
+    console.error("Query error:", err);
+    return res
+      .status(500)
+      .json({ error: "Query failed", details: err.message });
+  }
 }

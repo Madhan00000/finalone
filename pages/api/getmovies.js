@@ -1,4 +1,4 @@
-import { mongooseConnect } from "@/lib/mongoose";
+import { mongooseConnect } from "@/netlify/functions/db";
 import { Movie } from "@/models/Movie";
 
 export default async function handle(req, res) {

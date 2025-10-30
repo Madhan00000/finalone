@@ -6,7 +6,7 @@ import React, { useState, useEffect } from 'react';
 
 export default function All() {
   // Fetch data with custom hook
-  const { alldata, loading } = useFetchData("/api/getmovies");
+  const { alldata, loading } = useFetchData("/netlify/functions/getmovies");
 
   // Filter for published movies
   const publishedData = (alldata || []).filter((ab) => ab.status === "publish");

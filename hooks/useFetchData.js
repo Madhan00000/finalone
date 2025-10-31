@@ -1,41 +1,43 @@
 // useFetchData.js
+// hooks/useFetchData.js
 import axios from "axios";
 import { useEffect, useState } from "react";
 
-function useFetchData(apiEndpoint) {
-  const [alldata, setAllData] = useState([]);
+/**
+ * Generic data-fetching hook
+ * @param {string} apiEndpoint - Full or relative API URL
+ * @returns {{ data: Array, loading: boolean, error: any }}
+ */
+export default function useFetchData(apiEndpoint) {
+  const [data, setData] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [initialLoad, setInitialLoad] = useState(true);
-  const [allMovie, setAllMovie] = useState([]);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
-    if (initialLoad) {
-      setInitialLoad(false);
+    // Reset state when endpoint changes
+    setLoading(true);
+    setError(null);
+    setData([]);
+
+    if (!apiEndpoint) {
       setLoading(false);
       return;
     }
 
-    setLoading(true);
-
-    const fetchAllData = async () => {
+    const fetchData = async () => {
       try {
         const res = await axios.get(apiEndpoint);
-        const alldata = res.data;
-        setAllData(alldata);
-        setAllMovie(alldata);
-        setLoading(false);
-      } catch (error) {
-        console.error("Error fetching movie data:", error);
+        setData(res.data || []);
+      } catch (err) {
+        console.error("useFetchData error:", err);
+        setError(err);
+      } finally {
         setLoading(false);
       }
     };
 
-    if (apiEndpoint) {
-      fetchAllData();
-    }
-  }, [initialLoad, apiEndpoint]);
+    fetchData();
+  }, [apiEndpoint]);
 
-  return { alldata, allMovie, loading };
+  return { data, loading, error };
 }
-
-export default useFetchData;

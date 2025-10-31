@@ -2,42 +2,49 @@
 // hooks/useFetchData.js
 import axios from "axios";
 import { useEffect, useState } from "react";
+import { useError } from "@/contexts/ErrorContext"; // Import the useError hook to access the error context
 
-/**
- * Generic data-fetching hook
- * @param {string} apiEndpoint - Full or relative API URL
- * @returns {{ data: Array, loading: boolean, error: any }}
- */
-export default function useFetchData(apiEndpoint) {
-  const [data, setData] = useState([]);
+function useFetchData(apiEndpoint) {
+  const [alldata, setAllData] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const [initialLoad, setInitialLoad] = useState(true);
+  const [allMovie, setAllMovie] = useState([]);
+  const { setNetworkError } = useError(); // Access the setNetworkError function from the context
 
   useEffect(() => {
-    // Reset state when endpoint changes
-    setLoading(true);
-    setError(null);
-    setData([]);
-
-    if (!apiEndpoint) {
+    if (initialLoad) {
+      // Set initialLoad to false to prevent the API call on subsequent renders
+      setInitialLoad(false);
       setLoading(false);
-      return;
+      return; // Exit useEffect early
     }
 
-    const fetchData = async () => {
+    // Set loading to true to indicate data fetching
+    setLoading(true);
+
+    const fetchAllData = async () => {
       try {
         const res = await axios.get(apiEndpoint);
-        setData(res.data || []);
-      } catch (err) {
-        console.error("useFetchData error:", err);
-        setError(err);
-      } finally {
-        setLoading(false);
+        const alldata = res.data;
+        setAllData(alldata);
+        setAllMovie(alldata);
+        setLoading(false); // Set loading state to false after data is fetched
+        setNetworkError(null); // Reset network error on successful data fetch
+      } catch (error) {
+        console.error("Error fetching movie data:", error);
+        setLoading(false); // Set loading state false even if there's an error
+        setNetworkError("Network Error: Unable to fetch data"); // Trigger global error state
       }
     };
 
-    fetchData();
-  }, [apiEndpoint]);
+    // Fetch movie data only if the API endpoint exists
+    if (apiEndpoint) {
+      fetchAllData(); // Call this function if API exists
+    }
 
-  return { data, loading, error };
+  }, [initialLoad, apiEndpoint, setNetworkError]); // Depend on initialLoad and apiEndpoint to trigger API call
+
+  return { alldata, allMovie, loading };
 }
+
+export default useFetchData;
